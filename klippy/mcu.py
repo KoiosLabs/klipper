@@ -223,8 +223,8 @@ class MCU_trsync:
             s.note_homing_end()
         return params['trigger_reason']
 
-TRSYNC_TIMEOUT = 0.025
-TRSYNC_SINGLE_MCU_TIMEOUT = 0.250
+TRSYNC_TIMEOUT_DEFAULT = 0.025
+TRSYNC_SINGLE_MCU_TIMEOUT_DEFAULT = 0.250
 
 class TriggerDispatch:
     def __init__(self, mcu):
@@ -554,6 +554,23 @@ class MCU:
         self._name = config.get_name()
         if self._name.startswith('mcu '):
             self._name = self._name[4:]
+        # trsync timeouts
+        # main mcu
+        if self._name == 'mcu':
+            self._trsync_timeout = config.getfloat('trsync_timeout',
+                                                   TRSYNC_TIMEOUT_DEFAULT)
+            self._trsync_single_mcu_timeout = config.getfloat(
+                    'trsync_single_mcu_timeout',
+                    TRSYNC_SINGLE_MCU_TIMEOUT_DEFAULT)
+        # additional mcu, default to settings of main mcu
+        else:
+            main_mcu = get_printer_mcu(self._printer, 'mcu')
+            self._trsync_timeout = \
+                config.getfloat('trsync_timeout',
+                                main_mcu.get_trsync_timeout())
+            self._trsync_single_mcu_timeout = config.getfloat(
+                    'trsync_single_mcu_timeout',
+                    main_mcu.get_trsync_single_mcu_timeout())
         # Serial port
         wp = "mcu '%s': " % (self._name)
         self._serial = serialhdl.SerialReader(self._reactor, warn_prefix=wp)
@@ -892,6 +909,10 @@ class MCU:
         return self._serial.get_msgparser().get_constants()
     def get_constant_float(self, name):
         return self._serial.get_msgparser().get_constant_float(name)
+    def get_trsync_timeout(self) -> float:
+        return self._trsync_timeout
+    def get_trsync_single_mcu_timeout(self) -> float:
+        return self._trsync_single_mcu_timeout
     def print_time_to_clock(self, print_time):
         return self._clocksync.print_time_to_clock(print_time)
     def clock_to_print_time(self, clock):
